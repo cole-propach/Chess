@@ -19,6 +19,22 @@ public class board_controller : MonoBehaviour
         //put every piece on the board
         populateBoard();
         printBoard();
+
+        
+        printBoard();
+        var moves = generateMoves(Color.White);
+        printMoves(moves);
+    }
+
+    void printMoves(Dictionary<(int, int), List<Move>> movesMap)
+    {
+        foreach (var entry in movesMap)
+        {
+            foreach (Move move in entry.Value)
+            {
+                move.printMove();
+            }
+        }
     }
 
     bool isInBounds(int row, int col)
@@ -104,10 +120,10 @@ public class board_controller : MonoBehaviour
         Debug.Log(boardString);
     }
 
-    void makeMove(int startRow, int startCol, int destRow, int destCol)
+    void makeMove(Piece[,] b, int startRow, int startCol, int destRow, int destCol)
     {
-        board[destRow, destCol] = board[startRow, startCol];
-        board[startRow, startCol] = Piece.Empty;
+        b[destRow, destCol] = b[startRow, startCol];
+        b[startRow, startCol] = Piece.Empty;
         //check for checkmate or stalemate
     }
 
@@ -118,6 +134,21 @@ public class board_controller : MonoBehaviour
         public int destCol;
         public Piece piece;
         public string name;
+
+        public Move(int startRow, int startCol, int destRow, int destCol, Piece piece, string name)
+        {
+            this.startRow = startRow;
+            this.startCol = startCol;
+            this.destRow = destRow;
+            this.destCol = destCol;
+            this.piece = piece;
+            this.name = name;
+        }
+
+        public void printMove()
+        {
+            Debug.Log($"{name}: {piece} moves from ({startRow}, {startCol}) to ({destRow}, {destCol})");
+        }
     }
 
     enum Color
@@ -306,14 +337,15 @@ public class board_controller : MonoBehaviour
         return false;
     }
 
-    List<Move> generateMoves(Color color)
+    Dictionary<(int, int), List<Move>> generateMoves(Color color)
     {
         Color opponentColor = (color == Color.White) ? Color.Black : Color.White;
 
-        List<Move> moves = new List<Move>();
+        Dictionary<(int, int), List<Move>> movesMap = new  Dictionary<(int, int), List<Move>>();
 
-        Action<int, int> appendMoves = (row, col) =>
+        Action<int, int> addMovesFromSquare = (row, col) =>
         {
+            List<Move> moves = new List<Move>();
             Piece me = board[row, col];
             //if the piece is empty or not my color, ignore it
             if (getPieceColor(me) != color)
@@ -342,8 +374,62 @@ public class board_controller : MonoBehaviour
                 break;
 
                 //rook
-                case 'R':
+                case 'R':{
+                    //check each file until we hit a piece
+                    int[] direction = { -1, 1};
 
+                    for (int d = 0; d < 2; d++)
+                    {
+                        //check the rows in the direction
+                        int i = row + direction[d];
+                        while (i >= 0 && i < 8)
+                        {
+                            Move newMove;
+                            Piece p = board[i, col];
+                            if (p != Piece.Empty)
+                            {
+                                if (getPieceColor(p) != color)
+                                {
+                                    //add this move to the list
+                                    newMove = new Move(row, col, i, col, me, "");
+                                    moves.Add(newMove);
+                                }
+                                break; //blocked
+                            }
+
+                            //add this move to the list
+                            newMove = new Move(row, col, i, col, me, "");
+                            moves.Add(newMove);
+
+                            i += direction[d];
+                        }
+
+                        //check the cols in the direction
+                        i = col + direction[d];
+                        while (i >= 0 && i < 8)
+                        {
+                            Move newMove;
+                            Piece p = board[row, i];
+                            if (p != Piece.Empty)
+                            {
+                                if (getPieceColor(p) != color)
+                                {
+                                    //add this move to the list
+                                    newMove = new Move(row, col, row, i, me, "");
+                                    moves.Add(newMove);
+                                }
+                                break; //blocked
+                            }
+
+                            //add this move to the list
+                            newMove = new Move(row, col, row, i, me, "");
+                            moves.Add(newMove);
+
+                            i += direction[d];
+                        }
+                    }
+
+                }
                 break;
 
                 //queen
@@ -357,13 +443,31 @@ public class board_controller : MonoBehaviour
                 break;
             }
 
+            //add the moves i found to the moves map
+            movesMap[(row, col)] = moves;
         };
 
         //for every cell on the board
-            //append the moves of that cell
-        //for every move in moves
-            //if we make that move on an example board and it results in check for our color, remove it from the list
+        for(int rows = 0; rows < 8; rows++){
+            for(int cols = 0; cols < 8; cols++){
+                //add the moves of that cell
+                addMovesFromSquare(rows, cols);
+            }
+        }
 
-        return moves;
+        //for every move in movesMap
+        foreach (var entry in movesMap)
+        {
+            //if we make that move on an example board and it results in check for our color, remove it from the list
+            entry.Value.RemoveAll(move =>
+            {
+                Piece[,] tempBoard = new Piece[8, 8];
+                Array.Copy(board, tempBoard, board.Length);
+                makeMove(tempBoard, move.startRow, move.startCol, move.destRow, move.destCol);
+                return isInCheck(tempBoard, color);
+            });
+        }
+
+        return movesMap;
     }
 }
