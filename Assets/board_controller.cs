@@ -1,6 +1,7 @@
 using UnityEngine;
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 
 public class board_controller : MonoBehaviour
 {
@@ -14,13 +15,20 @@ public class board_controller : MonoBehaviour
     //  (7, 7) is top right, or h8
     Piece[,] board = new Piece[8, 8];
 
+    (int, int) enPassantDest = (-1, -1);
+
+    public static class CastlingRights
+    {
+        public static bool white_kingside = true;
+        public static bool white_queenside = true;
+        public static bool black_kingside = true;
+        public static bool black_queenside = true;
+    };
+
     void Start()
     {
         //put every piece on the board
         populateBoard();
-        printBoard();
-
-        
         printBoard();
         var moves = generateMoves(Color.White);
         printMoves(moves);
@@ -120,11 +128,16 @@ public class board_controller : MonoBehaviour
         Debug.Log(boardString);
     }
 
-    void makeMove(Piece[,] b, int startRow, int startCol, int destRow, int destCol)
+    void teleportPiece(Piece[,] b, int startRow, int startCol, int destRow, int destCol)
     {
         b[destRow, destCol] = b[startRow, startCol];
         b[startRow, startCol] = Piece.Empty;
         //check for checkmate or stalemate
+    }
+
+    void makeMove(Move move)
+    {
+        
     }
 
     struct Move{
@@ -134,6 +147,7 @@ public class board_controller : MonoBehaviour
         public int destCol;
         public Piece piece;
         public string name;
+        public char pawnPromotionTarget;
 
         public Move(int startRow, int startCol, int destRow, int destCol, Piece piece, string name)
         {
@@ -143,6 +157,7 @@ public class board_controller : MonoBehaviour
             this.destCol = destCol;
             this.piece = piece;
             this.name = name;
+            this.pawnPromotionTarget = '0';
         }
 
         public void printMove()
@@ -337,6 +352,7 @@ public class board_controller : MonoBehaviour
         return false;
     }
 
+    //maps start square to a list of moves that can be taken from that square
     Dictionary<(int, int), List<Move>> generateMoves(Color color)
     {
         Color opponentColor = (color == Color.White) ? Color.Black : Color.White;
@@ -348,30 +364,113 @@ public class board_controller : MonoBehaviour
             List<Move> moves = new List<Move>();
             Piece me = board[row, col];
             //if the piece is empty or not my color, ignore it
-            if (getPieceColor(me) != color)
-            {
-                return;
-            }
+            if (getPieceColor(me) != color) return;
 
             //append legal moves
             switch(pieceToString(me)[1]){
                 //pawn
-                case 'P':
+                case 'P':{
+                    int moveDir = (color == Color.White) ? 1 : -1;
                     //check if it has an empty space in front
+                    if (board[row + moveDir, col] == Piece.Empty)
+                    {
+                        Move moveToAdd = new Move(row, col, row + moveDir, col, me, "");
+                        //if this move will promote me
+                        if ((color == Color.White && row == 6) || (color == Color.Black && row == 1))
+                        {
+                            //add all the promotion moves
+                            moveToAdd.pawnPromotionTarget = 'Q';
+                            moves.Add(moveToAdd);
+                            moveToAdd.pawnPromotionTarget = 'B';
+                            moves.Add(moveToAdd);
+                            moveToAdd.pawnPromotionTarget = 'R';
+                            moves.Add(moveToAdd);
+                            moveToAdd.pawnPromotionTarget = 'N';
+                            moves.Add(moveToAdd);
+                            //structs are passed by value so this is fine (since Move is a struct)
+                        }
+                        else //just add the pawn move
+                        {
+                            moves.Add(moveToAdd);
+                        }
+
+                        //check if it can move 2 forward only if it can move 1 forward
+                        bool onCorrectRow = (color == Color.White) ? row == 1 : row == 6;
+                        if (board[row + (moveDir * 2), col] == Piece.Empty && onCorrectRow)
+                        {
+                            moves.Add(new Move(row, col, row + (moveDir * 2), col, me, ""));
+                        }
+                    }
                     //check for enemy piece diagonally forward
-                    //en passant
-                    //promotion
+                    for (int c = -1; c <= 1; c+=2)
+                    {
+                        if(isInBounds(row + moveDir, col + c))
+                        {
+                            Move moveToAdd = new Move(row, col, row + moveDir, col + c, me, "");
+                            //if the piece there is the opponents
+                            if (getPieceColor(board[row + moveDir, col + c]) == opponentColor)
+                            {
+                                //promotion case
+                                if ((color == Color.White && row == 6) || (color == Color.Black && row == 1))
+                                {
+                                    moveToAdd.pawnPromotionTarget = 'Q';
+                                    moves.Add(moveToAdd);
+                                    moveToAdd.pawnPromotionTarget = 'B';
+                                    moves.Add(moveToAdd);
+                                    moveToAdd.pawnPromotionTarget = 'R';
+                                    moves.Add(moveToAdd);
+                                    moveToAdd.pawnPromotionTarget = 'N';
+                                    moves.Add(moveToAdd);
+                                }
+                                //normal case
+                                else
+                                {
+                                    moves.Add(moveToAdd);
+                                }
+                            }
+
+                            //en passant
+                            if (enPassantDest == (row + moveDir, col + c))
+                            {
+                                moves.Add(moveToAdd);
+                            }
+                        }
+                    }
                 break;
+                }
 
                 //bishop
-                case 'B':
+                case 'B':{
+                    int[] diagDr = { -1, -1, 1, 1 };
+                    int[] diagDc = { -1, 1, -1, 1 };
 
+                    for (int d = 0; d < 4; d++)
+                    {
+                        int r = row + diagDr[d];
+                        int c = col + diagDc[d];
+
+                        while (r >= 0 && r < 8 && c >= 0 && c < 8)
+                        {
+                            Piece p = board[r, c];
+                            if (p != Piece.Empty)
+                            {
+                                if (getPieceColor(p) != color)
+                                {
+                                    //add this move to the list
+                                    moves.Add(new Move(row, col, r, c, me, ""));
+                                }
+                                break; //blocked
+                            }
+
+                            moves.Add(new Move(row, col, r, c, me, ""));
+
+                            r += diagDr[d];
+                            c += diagDc[d];
+                        }
+                    }
+                if(pieceToString(me)[1] == 'Q') goto case 'R';
                 break;
-
-                //knight
-                case 'N':
-
-                break;
+                }
 
                 //rook
                 case 'R':{
@@ -384,22 +483,19 @@ public class board_controller : MonoBehaviour
                         int i = row + direction[d];
                         while (i >= 0 && i < 8)
                         {
-                            Move newMove;
                             Piece p = board[i, col];
                             if (p != Piece.Empty)
                             {
                                 if (getPieceColor(p) != color)
                                 {
                                     //add this move to the list
-                                    newMove = new Move(row, col, i, col, me, "");
-                                    moves.Add(newMove);
+                                    moves.Add(new Move(row, col, i, col, me, ""));
                                 }
                                 break; //blocked
                             }
 
                             //add this move to the list
-                            newMove = new Move(row, col, i, col, me, "");
-                            moves.Add(newMove);
+                            moves.Add(new Move(row, col, i, col, me, ""));
 
                             i += direction[d];
                         }
@@ -408,42 +504,115 @@ public class board_controller : MonoBehaviour
                         i = col + direction[d];
                         while (i >= 0 && i < 8)
                         {
-                            Move newMove;
                             Piece p = board[row, i];
                             if (p != Piece.Empty)
                             {
                                 if (getPieceColor(p) != color)
                                 {
                                     //add this move to the list
-                                    newMove = new Move(row, col, row, i, me, "");
-                                    moves.Add(newMove);
+                                    moves.Add(new Move(row, col, row, i, me, ""));
                                 }
                                 break; //blocked
                             }
 
                             //add this move to the list
-                            newMove = new Move(row, col, row, i, me, "");
-                            moves.Add(newMove);
+                            moves.Add(new Move(row, col, row, i, me, ""));
 
                             i += direction[d];
                         }
                     }
-
-                }
                 break;
+                }
 
                 //queen
                 case 'Q':
-
-                break;
+                    goto case 'B'; //bishop code then goes to rook code if the piece is a queen
 
                 //king
-                case 'K':
+                case 'K':{
+                    for (int r = -1; r < 2; r++)
+                    {
+                        //break if row is out of bounds
+                        if ((row + r) > 7 || (row + r) < 0) break;
+                        for (int c = -1; c < 2; c++)
+                        {
+                            //break if col is out of bounds
+                            if ((col + c) > 7 || (col + c) < 0) break;
+                            Piece p = board[row + r, col + c];
+                            if(getPieceColor(p) != color)
+                            {
+                                moves.Add(new Move(row, col, r, c, me, ""));
+                            }
+                        }
+                    }
+                    //castling
+                    bool hasRightsKingside = (color == Color.White) ? CastlingRights.white_kingside : CastlingRights.black_kingside;
+                    bool hasRightsQueenside = (color == Color.White) ? CastlingRights.white_queenside : CastlingRights.black_queenside;
+                    if (hasRightsKingside)
+                    {
+                        bool canCastle = true;
+                        //check for pieces between king and rook
+                        for (int i = 1; i <= 2; i++)
+                        {
+                            if (board[row, col + i] != Piece.Empty)
+                            {
+                                canCastle = false;
+                                break;
+                            }
+                        }
+                        //check for checks between king start and end pos, inclusive
+                        Piece[,] tempBoard = new Piece[8, 8];
+                        Array.Copy(board, tempBoard, board.Length);
+                        for (int i = 0; i <= 2; i++)
+                        {
+                            teleportPiece(tempBoard, row, col, row, col + i);
+                            if(isInCheck(tempBoard, color))
+                            {
+                                canCastle = false;
+                                break;
+                            }
+                        }
 
+                        if (canCastle)
+                        {
+                            moves.Add(new Move(row, col, row, col + 2, me, ""));
+                        }
+                    }
+                    if (hasRightsQueenside)
+                    {
+                        bool canCastle = true;
+                        //check for pieces between king and rook
+                        for (int i = 1; i <= 3; i++)
+                        {
+                            if (board[row, col - i] != Piece.Empty)
+                            {
+                                canCastle = false;
+                                break;
+                            }
+                        }
+                        //check for checks between king start and end pos, inclusive
+                        Piece[,] tempBoard = new Piece[8, 8];
+                        Array.Copy(board, tempBoard, board.Length);
+                        for (int i = 0; i <= 2; i++)
+                        {
+                            teleportPiece(tempBoard, row, col, row, col - i);
+                            if(isInCheck(tempBoard, color))
+                            {
+                                canCastle = false;
+                                break;
+                            }
+                        }
+
+                        if (canCastle)
+                        {
+                            moves.Add(new Move(row, col, row, col - 2, me, ""));
+                        }
+                    }
                 break;
+                }
             }
 
-            //add the moves i found to the moves map
+            //add the moves found to the moves map
             movesMap[(row, col)] = moves;
         };
 
@@ -463,7 +632,7 @@ public class board_controller : MonoBehaviour
             {
                 Piece[,] tempBoard = new Piece[8, 8];
                 Array.Copy(board, tempBoard, board.Length);
-                makeMove(tempBoard, move.startRow, move.startCol, move.destRow, move.destCol);
+                teleportPiece(tempBoard, move.startRow, move.startCol, move.destRow, move.destCol);
                 return isInCheck(tempBoard, color);
             });
         }
