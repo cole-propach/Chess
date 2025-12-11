@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Unity Web Player | Chess</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #231F20;
+      }
+
+      #unity-canvas {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #231F20;
+        outline: none;
+      }
+    </style>
+  </head>
+
+  <body>
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+
+    <script src="Build/build.loader.js"></script>
+    <script>
+      const canvas = document.getElementById("unity-canvas");
+      const nativeResolution = 256;
+
+      function resizeCanvas() {
+        const maxSize = Math.min(window.innerWidth, window.innerHeight)* 0.9;
+        const scale = Math.floor(maxSize / nativeResolution);
+        const size = scale * nativeResolution;
+
+        canvas.width = size;
+        canvas.height = size;
+        canvas.style.width = size + "px";
+        canvas.style.height = size + "px";
+      }
+
+      window.addEventListener("resize", resizeCanvas);
+      resizeCanvas();
+
+      createUnityInstance(canvas, {
+        arguments: [],
+        dataUrl: "Build/build.data.br",
+        frameworkUrl: "Build/build.framework.js.br",
+        codeUrl: "Build/build.wasm.br",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "Cole Propach",
+        productName: "Chess",
+        productVersion: "1.0",
+        matchWebGLToCanvasSize: true
+      });
+    </script>
+  </body>
+</html>

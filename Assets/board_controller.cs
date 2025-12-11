@@ -2,15 +2,47 @@ using UnityEngine;
 using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
+using System.Runtime.CompilerServices;
+
+public enum Piece {
+    Empty,
+    WhitePawn, WhiteKnight, WhiteBishop, WhiteRook, WhiteQueen, WhiteKing,
+    BlackPawn, BlackKnight, BlackBishop, BlackRook, BlackQueen, BlackKing
+}
+
+public enum Color
+{
+    White, Black, Empty
+}
+
+public struct Move{
+    public int startRow;
+    public int startCol;
+    public int destRow;
+    public int destCol;
+    public Piece piece;
+    public string name;
+    public char pawnPromotionTarget;
+
+    public Move(int startRow, int startCol, int destRow, int destCol, Piece piece, string name)
+    {
+        this.startRow = startRow;
+        this.startCol = startCol;
+        this.destRow = destRow;
+        this.destCol = destCol;
+        this.piece = piece;
+        this.name = name;
+        this.pawnPromotionTarget = '0';
+    }
+
+    public void printMove()
+    {
+        Debug.Log($"{name}: {piece} moves from ({startRow}, {startCol}) to ({destRow}, {destCol})");
+    }
+}
 
 public class board_controller : MonoBehaviour
 {
-    enum Piece {
-        Empty,
-        WhitePawn, WhiteKnight, WhiteBishop, WhiteRook, WhiteQueen, WhiteKing,
-        BlackPawn, BlackKnight, BlackBishop, BlackRook, BlackQueen, BlackKing
-    }
-
     //  (0, 0) is bottom left, or a1
     //  (7, 7) is top right, or h8
     Piece[,] board = new Piece[8, 8];
@@ -25,13 +57,16 @@ public class board_controller : MonoBehaviour
         public static bool black_queenside = true;
     };
 
+    Dictionary<(int, int), List<Move>> currentLegalMoves = new Dictionary<(int, int), List<Move>>();
+    Color colorToMove = Color.White;
+
     void Start()
     {
         //put every piece on the board
         populateBoard();
-        printBoard();
-        var moves = generateMoves(Color.White);
-        printMoves(moves);
+        //printBoard();
+        currentLegalMoves = generateMoves(colorToMove);
+        //printMoves(moves);
     }
 
     void printMoves(Dictionary<(int, int), List<Move>> movesMap)
@@ -87,7 +122,7 @@ public class board_controller : MonoBehaviour
         }
     }
 
-    string pieceToString(Piece p)
+    public static string pieceToString(Piece p)
     {
         switch (p)
         {
@@ -135,43 +170,163 @@ public class board_controller : MonoBehaviour
         //check for checkmate or stalemate
     }
 
+    bool isLegalMove(Move move)
+    {
+        List<Move> movesToCheck = currentLegalMoves[(move.startRow, move.startCol)];
+        foreach (Move m in movesToCheck)
+        {
+            if (m.Equals(move))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    //ONLY make LEGAL moves
+    //making illegal moves is undefined
     void makeMove(Move move)
     {
-        
+        //if the move ends in a rook start square, remove the relevant castling rights
+        if (move.destRow == 0 && move.destCol == 0)
+            CastlingRights.white_queenside = false;
+        else if (move.destRow == 0 && move.destCol == 7)
+            CastlingRights.white_kingside = false;
+        else if (move.destRow == 7 && move.destCol == 0)
+            CastlingRights.black_queenside = false;
+        else if (move.destRow == 7 && move.destCol == 7)
+            CastlingRights.black_kingside = false;
+
+        Color color = getPieceColor(move.piece);
+        enPassantDest = (-1, -1); //reset enpassant dest
+        string moveString = move.ToString();
+        switch (moveString[1])//piece char
+        {
+            case 'Q':
+            case 'B':
+            case 'N':
+                //make move normally
+                teleportPiece(board, move.startRow, move.startCol, move.destRow, move.destCol);
+            break;
+            case 'R':
+                //revoke relevant castling rights
+                if (color == Color.White && move.startRow == 0)
+                {
+                    if (move.startCol == 0)
+                        CastlingRights.white_queenside = false;
+                    else if (move.startCol == 7)
+                        CastlingRights.white_kingside = false;
+                }
+                else if (color == Color.Black && move.startRow == 7)
+                {
+                    if (move.startCol == 0)
+                        CastlingRights.black_queenside = false;
+                    else if (move.startCol == 7)
+                        CastlingRights.black_kingside = false;
+                }
+                teleportPiece(board, move.startRow, move.startCol, move.destRow, move.destCol);
+            break;
+            case 'P':
+                //en passant
+                if ((move.destRow, move.destCol) == enPassantDest)
+                {
+                    //remove the pawn behind the destination
+                    int direction = (color == Color.White) ? -1 : 1;
+                    board[move.destRow, move.destCol] = Piece.Empty;
+                    teleportPiece(board, move.startRow, move.startCol, move.destRow, move.destCol);
+                }
+                //promotion
+                else if (move.pawnPromotionTarget != '0')
+                {
+                    board[move.startRow, move.startCol] = Piece.Empty;
+                    switch (move.pawnPromotionTarget)
+                    {
+                        case 'Q':
+                            board[move.destRow, move.destCol] = (color == Color.White) ? Piece.WhiteQueen : Piece.BlackQueen;
+                        break;
+                        case 'R':
+                            board[move.destRow, move.destCol] = (color == Color.White) ? Piece.WhiteRook : Piece.BlackRook;
+                        break;
+                        case 'B':
+                            board[move.destRow, move.destCol] = (color == Color.White) ? Piece.WhiteBishop : Piece.BlackBishop;
+                        break;
+                        case 'N':
+                            board[move.destRow, move.destCol] = (color == Color.White) ? Piece.WhiteKnight : Piece.BlackKnight;
+                        break;
+                    }
+                }
+                else
+                {
+                    //normal move
+                    teleportPiece(board, move.startRow, move.startCol, move.destRow, move.destCol);
+                }
+
+                //if double push, update en passant destination
+                if ( Mathf.Abs(move.startRow - move.destRow) == 2)
+                {
+                    int direction = (color == Color.White) ? -1 : 1;
+                    enPassantDest = (move.destRow - direction, move.destCol);
+                }
+            break;
+            case 'K':
+                //revoke all castling rights
+                if (color == Color.White)
+                {
+                    CastlingRights.white_kingside = false;
+                    CastlingRights.white_queenside = false;
+                }
+                else
+                {
+                    CastlingRights.black_kingside = false;
+                    CastlingRights.black_queenside = false;
+                }
+                //castling
+                if ( Mathf.Abs(move.startCol - move.destCol) == 2)
+                {
+                    //kingside
+                    if (move.startCol < move.destCol)
+                    {
+                        //king
+                        teleportPiece(board, move.startRow, move.startCol, move.destRow, move.destCol);
+                        //rook
+                        teleportPiece(board, move.startRow, 7, move.startRow, 5);
+                    }
+                    //queenside
+                    else
+                    {
+                        //king
+                        teleportPiece(board, move.startRow, move.startCol, move.destRow, move.destCol);
+                        //rook
+                        teleportPiece(board, move.startRow, 0, move.startRow, 3);
+                    }
+                }
+                //normal move
+                else
+                    teleportPiece(board, move.startRow, move.startCol, move.destRow, move.destCol);
+            break;
+        }
     }
 
-    struct Move{
-        public int startRow;
-        public int startCol;
-        public int destRow;
-        public int destCol;
-        public Piece piece;
-        public string name;
-        public char pawnPromotionTarget;
-
-        public Move(int startRow, int startCol, int destRow, int destCol, Piece piece, string name)
-        {
-            this.startRow = startRow;
-            this.startCol = startCol;
-            this.destRow = destRow;
-            this.destCol = destCol;
-            this.piece = piece;
-            this.name = name;
-            this.pawnPromotionTarget = '0';
-        }
-
-        public void printMove()
-        {
-            Debug.Log($"{name}: {piece} moves from ({startRow}, {startCol}) to ({destRow}, {destCol})");
-        }
-    }
-
-    enum Color
+    public bool SendMove(Move move)
     {
-        White, Black, Empty
+        bool moveIsLegal = isLegalMove(move);
+        //if move is illegal return false and do nothing
+        if (!moveIsLegal)
+        {
+            return false;
+        }
+        //else move is legal
+        else
+        {
+            //make move
+            makeMove(move);
+            //return true
+            return true;
+        }
     }
 
-    Color getPieceColor(Piece p)
+
+    public static Color getPieceColor(Piece p)
     {
         switch (p)
         {
