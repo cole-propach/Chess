@@ -3,13 +3,17 @@ using System.Data;
 using Microsoft.Unity.VisualStudio.Editor;
 using Unity.Mathematics;
 using Unity.VisualScripting;
+using UnityEditor.Rendering;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class ui_controller : MonoBehaviour
 {
-    GameObject stalemate;
-    GameObject reset;
+    GameObject resetScreen;
+    GameObject resetButton;
+    Sprite blackWins;
+    Sprite whiteWins;
+    Sprite stalemate;
     public Dictionary<(int, int), GameObject> pieces = new Dictionary<(int, int), GameObject>();
     public GameObject[,] dots = new GameObject[8,8];
     GameObject P;
@@ -46,10 +50,14 @@ public class ui_controller : MonoBehaviour
         P = Resources.Load<GameObject>("Prefabs/Piece");
         populateBoard();
 
-        reset = GameObject.Find("resetButton");
-        reset.SetActive(false);
-        stalemate = GameObject.Find("stalemateScreen");
-        stalemate.SetActive(false);
+        resetButton = GameObject.Find("resetButton");
+        resetButton.SetActive(false);
+        resetScreen = GameObject.Find("resetScreen");
+        resetScreen.SetActive(false);
+
+        blackWins = Resources.Load<Sprite>("blackWinsScreen");
+        whiteWins = Resources.Load<Sprite>("whiteWinsScreen");
+        stalemate = Resources.Load<Sprite>("stalemateScreen");
     }
 
     void Update()
@@ -107,16 +115,26 @@ public class ui_controller : MonoBehaviour
     //winState is (white, black) telling you if that color won. both false means stalemate
     public void EndGameOnUI((bool, bool) winState)
     {
-        GameObject correctPopup = stalemate;
+        Sprite correctSprite = stalemate;
+        (bool whiteWon, bool blackWon) = winState;
+        if (whiteWon)
+        {
+            correctSprite = whiteWins;
+        }
+        else if (blackWon)
+        {
+            correctSprite = blackWins;
+        }
 
-        correctPopup.SetActive(true);
-        reset.SetActive(true);
+        resetScreen.GetComponent<UnityEngine.UI.Image>().sprite = correctSprite;
+        resetScreen.SetActive(true);
+        resetButton.SetActive(true);
     }
 
     public void resetGameUI()
     {
-        GameObject.Find("stalemateScreen").SetActive(false);
-        GameObject.Find("resetButton").SetActive(false);
+        resetScreen.SetActive(false);
+        resetButton.SetActive(false);
 
         unselectSquares();
 
