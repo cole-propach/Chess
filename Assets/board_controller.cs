@@ -43,6 +43,7 @@ public struct Move{
 
 public class board_controller : MonoBehaviour
 {
+    ui_controller ui;
     //  (0, 0) is bottom left, or a1
     //  (7, 7) is top right, or h8
     Piece[,] board = new Piece[8, 8];
@@ -62,9 +63,36 @@ public class board_controller : MonoBehaviour
 
     void Start()
     {
+        ui = GameObject.Find("ui controller").GetComponent<ui_controller>();
         //put every piece on the board
+        resetGame();
+    }
+
+    public void resetGame()
+    {
+        CastlingRights.white_kingside = true;
+        CastlingRights.white_queenside = true;
+        CastlingRights.black_kingside = true;
+        CastlingRights.black_queenside = true;
+
+        enPassantDest = (-1, -1);
+
+        colorToMove = Color.White;
+
+        clearBoard();
         populateBoard();
         currentLegalMoves = generateMoves(colorToMove);
+    }
+
+    void clearBoard()
+    {
+        for (int r = 0; r < 8; r++)
+        {
+            for (int c = 0; c < 8; c++)
+            {
+                board[r, c] = Piece.Empty;
+            }
+        }
     }
 
     public List<Move> getMovesForSquare(int row, int col)
@@ -341,6 +369,29 @@ public class board_controller : MonoBehaviour
         //update color to move and re generate moves
         colorToMove = (colorToMove == Color.White) ? Color.Black : Color.White;
         currentLegalMoves = generateMoves(colorToMove);
+        int numberOfLegalMoves = 0;
+        foreach (KeyValuePair<(int, int), List<Move>> entry in currentLegalMoves)
+        {
+            numberOfLegalMoves += entry.Value.Count;
+        }
+        if (numberOfLegalMoves == 0) //there are no legal moves
+        {
+            endGame();
+        }
+    }
+
+    void endGame()
+    {
+        // (white, black), true if that player won. if both are false it is stalemate
+        (bool, bool) wins = (false, false);
+        Color colorThatMightHaveWon = (colorToMove == Color.White) ? Color.Black : Color.White;
+        bool thatColorDidWin = isInCheck(board, colorToMove);
+
+        bool whiteWon = (colorThatMightHaveWon == Color.White) && thatColorDidWin;
+        bool blackWon = (colorThatMightHaveWon == Color.Black) && thatColorDidWin;
+        wins = (whiteWon, blackWon);
+        
+        ui.EndGameOnUI(wins);
     }
 
     public bool SendMove(Move move)

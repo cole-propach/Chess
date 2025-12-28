@@ -8,6 +8,8 @@ using UnityEngine.UI;
 
 public class ui_controller : MonoBehaviour
 {
+    GameObject stalemate;
+    GameObject reset;
     public Dictionary<(int, int), GameObject> pieces = new Dictionary<(int, int), GameObject>();
     public GameObject[,] dots = new GameObject[8,8];
     GameObject P;
@@ -43,6 +45,11 @@ public class ui_controller : MonoBehaviour
         //populate the board with piece game objects
         P = Resources.Load<GameObject>("Prefabs/Piece");
         populateBoard();
+
+        reset = GameObject.Find("resetButton");
+        reset.SetActive(false);
+        stalemate = GameObject.Find("stalemateScreen");
+        stalemate.SetActive(false);
     }
 
     void Update()
@@ -95,6 +102,36 @@ public class ui_controller : MonoBehaviour
         movingPiece.GetComponent<piece_controller>().homeRow = destRow;
         movingPiece.GetComponent<piece_controller>().homeCol = destCol;
         movingPiece.GetComponent<RectTransform>().anchoredPosition = GridToPosition(new Vector2Int(destRow, destCol));
+    }
+
+    //winState is (white, black) telling you if that color won. both false means stalemate
+    public void EndGameOnUI((bool, bool) winState)
+    {
+        GameObject correctPopup = stalemate;
+
+        correctPopup.SetActive(true);
+        reset.SetActive(true);
+    }
+
+    public void resetGameUI()
+    {
+        GameObject.Find("stalemateScreen").SetActive(false);
+        GameObject.Find("resetButton").SetActive(false);
+
+        unselectSquares();
+
+        clearPieces();
+
+        populateBoard();
+    }
+
+    void clearPieces()
+    {
+        foreach (var entry in pieces)
+        {
+            Destroy(entry.Value);
+        }
+        pieces.Clear();
     }
 
     public void makeMoveOnUI(Move move)
