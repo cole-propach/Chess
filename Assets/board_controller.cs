@@ -64,9 +64,17 @@ public class board_controller : MonoBehaviour
     {
         //put every piece on the board
         populateBoard();
-        //printBoard();
         currentLegalMoves = generateMoves(colorToMove);
-        //printMoves(moves);
+    }
+
+    public List<Move> getMovesForSquare(int row, int col)
+    {
+        if (!currentLegalMoves.ContainsKey((row, col)))
+        {
+            return new List<Move>();
+        }
+        else
+            return currentLegalMoves[(row, col)];
     }
 
     void printMoves(Dictionary<(int, int), List<Move>> movesMap)
@@ -146,6 +154,7 @@ public class board_controller : MonoBehaviour
 
     void printBoard()
     {
+        Debug.Log("V this one is the real board V");
         int rows = board.GetLength(0);
         int cols = board.GetLength(1);
 
@@ -163,15 +172,39 @@ public class board_controller : MonoBehaviour
         Debug.Log(boardString);
     }
 
+    void printGivenBoard(Piece[,] b)
+    {
+        int rows = b.GetLength(0);
+        int cols = b.GetLength(1);
+
+        string boardString = "";
+
+        for (int y = rows-1; y >= 0; y--)
+        {
+            for (int x = 0; x < cols; x++)
+            {
+                boardString += pieceToString(b[y, x]).PadRight(3);
+            }
+            boardString += "\n";
+        }
+
+        Debug.Log(boardString);
+    }
+
     void teleportPiece(Piece[,] b, int startRow, int startCol, int destRow, int destCol)
     {
+        if (startRow == destRow && startCol == destCol)
+        {
+            return;
+        }
         b[destRow, destCol] = b[startRow, startCol];
         b[startRow, startCol] = Piece.Empty;
-        //check for checkmate or stalemate
     }
 
     bool isLegalMove(Move move)
     {
+        bool hasKey = currentLegalMoves.ContainsKey((move.startRow, move.startCol));
+        if(!hasKey) return false;
         List<Move> movesToCheck = currentLegalMoves[(move.startRow, move.startCol)];
         foreach (Move m in movesToCheck)
         {
@@ -199,8 +232,8 @@ public class board_controller : MonoBehaviour
 
         Color color = getPieceColor(move.piece);
         enPassantDest = (-1, -1); //reset enpassant dest
-        string moveString = move.ToString();
-        switch (moveString[1])//piece char
+        string pieceString = pieceToString(move.piece);
+        switch (pieceString[1])//piece char
         {
             case 'Q':
             case 'B':
@@ -265,7 +298,7 @@ public class board_controller : MonoBehaviour
                 if ( Mathf.Abs(move.startRow - move.destRow) == 2)
                 {
                     int direction = (color == Color.White) ? -1 : 1;
-                    enPassantDest = (move.destRow - direction, move.destCol);
+                    enPassantDest = (move.destRow + direction, move.destCol);
                 }
             break;
             case 'K':
@@ -305,6 +338,9 @@ public class board_controller : MonoBehaviour
                     teleportPiece(board, move.startRow, move.startCol, move.destRow, move.destCol);
             break;
         }
+        //update color to move and re generate moves
+        colorToMove = (colorToMove == Color.White) ? Color.Black : Color.White;
+        currentLegalMoves = generateMoves(colorToMove);
     }
 
     public bool SendMove(Move move)
@@ -374,6 +410,12 @@ public class board_controller : MonoBehaviour
                 break;
             }
         }
+        if (!kingFound)
+        {
+            Debug.Log("called isInCheck() on a board with no corresponding king!");
+            printGivenBoard(b);
+            return true;
+        }
         //check a pawn capture away (color dependent) for enemy pawns
         int colorSign = (opponentColor == Color.White) ? -1 : 1;
         //if not out of bounds, check for pawns
@@ -400,12 +442,12 @@ public class board_controller : MonoBehaviour
         //check a king move away for an enemy king
         for (int row = -1; row < 2; row++)
         {
-            //break if row is out of bounds
-            if ((kingRow + row) > 7 || (kingRow + row) < 0) break;
+            //continue if row is out of bounds
+            if ((kingRow + row) > 7 || (kingRow + row) < 0) continue;
             for (int col = -1; col < 2; col++)
             {
-                //break if col is out of bounds
-                if ((kingCol + col) > 7 || (kingCol + col) < 0) break;
+                //continue if col is out of bounds
+                if ((kingCol + col) > 7 || (kingCol + col) < 0) continue;
                 if(b[(kingRow + row), (kingCol + col)] == ((opponentColor == Color.White) ? Piece.WhiteKing : Piece.BlackKing))
                 {
                     return true;
@@ -472,6 +514,11 @@ public class board_controller : MonoBehaviour
             int i = kingRow + direction[d];
             while (i >= 0 && i < 8)
             {
+                if (kingCol < 0 || kingCol >= 8)
+                {
+                    Debug.Log($"Invalid kingCol: {kingCol}");
+                    Debug.Log($"kingRow: {kingRow}");
+                }
                 Piece p = b[i, kingCol];
                 if (p != Piece.Empty)
                 {
@@ -563,7 +610,8 @@ public class board_controller : MonoBehaviour
                         {
                             Move moveToAdd = new Move(row, col, row + moveDir, col + c, me, "");
                             //if the piece there is the opponents
-                            if (getPieceColor(board[row + moveDir, col + c]) == opponentColor)
+                            bool isKing = board[row + moveDir, col + c] == Piece.WhiteKing || board[row + moveDir, col + c] == Piece.BlackKing;
+                            if (getPieceColor(board[row + moveDir, col + c]) == opponentColor && !isKing)
                             {
                                 //promotion case
                                 if ((color == Color.White && row == 6) || (color == Color.Black && row == 1))
@@ -587,7 +635,7 @@ public class board_controller : MonoBehaviour
                             //en passant
                             if (enPassantDest == (row + moveDir, col + c))
                             {
-                                moves.Add(moveToAdd);
+                                moves.Add(moveToAdd); 
                             }
                         }
                     }
@@ -609,7 +657,8 @@ public class board_controller : MonoBehaviour
                             Piece p = board[r, c];
                             if (p != Piece.Empty)
                             {
-                                if (getPieceColor(p) != color)
+                                bool isKing = p == Piece.WhiteKing || p == Piece.BlackKing;
+                                if (getPieceColor(p) != color && !isKing)
                                 {
                                     //add this move to the list
                                     moves.Add(new Move(row, col, r, c, me, ""));
@@ -641,7 +690,8 @@ public class board_controller : MonoBehaviour
                             Piece p = board[i, col];
                             if (p != Piece.Empty)
                             {
-                                if (getPieceColor(p) != color)
+                                bool isKing = p == Piece.WhiteKing || p == Piece.BlackKing;
+                                if (getPieceColor(p) != color && !isKing)
                                 {
                                     //add this move to the list
                                     moves.Add(new Move(row, col, i, col, me, ""));
@@ -662,7 +712,8 @@ public class board_controller : MonoBehaviour
                             Piece p = board[row, i];
                             if (p != Piece.Empty)
                             {
-                                if (getPieceColor(p) != color)
+                                bool isKing = p == Piece.WhiteKing || p == Piece.BlackKing;
+                                if (getPieceColor(p) != color && !isKing)
                                 {
                                     //add this move to the list
                                     moves.Add(new Move(row, col, row, i, me, ""));
@@ -687,16 +738,17 @@ public class board_controller : MonoBehaviour
                 case 'K':{
                     for (int r = -1; r < 2; r++)
                     {
-                        //break if row is out of bounds
-                        if ((row + r) > 7 || (row + r) < 0) break;
+                        //continue if row is out of bounds
+                        if ((row + r) > 7 || (row + r) < 0) continue;
                         for (int c = -1; c < 2; c++)
                         {
-                            //break if col is out of bounds
-                            if ((col + c) > 7 || (col + c) < 0) break;
+                            //continue if col is out of bounds
+                            if ((col + c) > 7 || (col + c) < 0) continue;
                             Piece p = board[row + r, col + c];
-                            if(getPieceColor(p) != color)
+                            bool isKing = p == Piece.WhiteKing || p == Piece.BlackKing;
+                            if(getPieceColor(p) != color && !isKing)
                             {
-                                moves.Add(new Move(row, col, r, c, me, ""));
+                                moves.Add(new Move(row, col, row + r, col + c, me, ""));
                             }
                         }
                     }
@@ -716,10 +768,12 @@ public class board_controller : MonoBehaviour
                             }
                         }
                         //check for checks between king start and end pos, inclusive
-                        Piece[,] tempBoard = new Piece[8, 8];
-                        Array.Copy(board, tempBoard, board.Length);
+                        if(canCastle)
                         for (int i = 0; i <= 2; i++)
                         {
+                            Piece[,] tempBoard = new Piece[8, 8];
+                            Array.Copy(board, tempBoard, board.Length);
+                            
                             teleportPiece(tempBoard, row, col, row, col + i);
                             if(isInCheck(tempBoard, color))
                             {
@@ -745,11 +799,14 @@ public class board_controller : MonoBehaviour
                                 break;
                             }
                         }
+
                         //check for checks between king start and end pos, inclusive
-                        Piece[,] tempBoard = new Piece[8, 8];
-                        Array.Copy(board, tempBoard, board.Length);
+                        if(canCastle)
                         for (int i = 0; i <= 2; i++)
                         {
+                            Piece[,] tempBoard = new Piece[8, 8];
+                            Array.Copy(board, tempBoard, board.Length);
+
                             teleportPiece(tempBoard, row, col, row, col - i);
                             if(isInCheck(tempBoard, color))
                             {
@@ -761,6 +818,35 @@ public class board_controller : MonoBehaviour
                         if (canCastle)
                         {
                             moves.Add(new Move(row, col, row, col - 2, me, ""));
+                        }
+                    }
+                break;
+                }
+                //knight
+                case 'N':{
+                    int[] knightDr = { -2, -2, -1, -1,  1,  1,  2,  2 };
+                    int[] knightDc = { -1,  1, -2,  2, -2,  2, -1,  1 };
+
+                    for (int i = 0; i < 8; i++)
+                    {
+                        int r = row + knightDr[i];
+                        int c = col + knightDc[i];
+
+                        if (!isInBounds(r, c)) continue;
+
+                        Piece p = board[r, c];
+
+                        if (p == Piece.Empty)
+                        {
+                            moves.Add(new Move(row, col, r, c, me, ""));
+                        }
+                        else
+                        {
+                            if (getPieceColor(p) == opponentColor &&
+                                p != Piece.WhiteKing && p != Piece.BlackKing)
+                            {
+                                moves.Add(new Move(row, col, r, c, me, ""));
+                            }
                         }
                     }
                 break;

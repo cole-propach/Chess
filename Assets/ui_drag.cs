@@ -29,6 +29,7 @@ public class DragUI : MonoBehaviour, IPointerDownHandler, IDragHandler, IEndDrag
         );
 
         rectTransform.anchoredPosition = localMousePos;
+        p.onClickDown(localMousePos);
     }
 
     public void OnDrag(PointerEventData eventData)

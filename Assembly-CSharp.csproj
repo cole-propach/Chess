@@ -70,6 +70,7 @@
     <Compile Include="Assets\ui_drag.cs" />
     <Compile Include="Assets\teleport_parent_to_me.cs" />
     <Compile Include="Assets\piece_controller.cs" />
+    <Compile Include="Assets\dot_controller.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">
