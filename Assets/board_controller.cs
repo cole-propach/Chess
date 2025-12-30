@@ -281,8 +281,9 @@ public class board_controller : MonoBehaviour
         else if (move.destRow == 7 && move.destCol == 7)
             CastlingRights.black_kingside = false;
 
+        bool isEnPassant = (move.destRow, move.destCol) == enPassantDest;
+        enPassantDest = (-1, -1);
         Color color = getPieceColor(move.piece);
-        enPassantDest = (-1, -1); //reset enpassant dest
         string pieceString = pieceToString(move.piece);
         switch (pieceString[1])//piece char
         {
@@ -312,11 +313,10 @@ public class board_controller : MonoBehaviour
             break;
             case 'P':
                 //en passant
-                if ((move.destRow, move.destCol) == enPassantDest)
+                if (isEnPassant)
                 {
                     //remove the pawn behind the destination
-                    int direction = (color == Color.White) ? -1 : 1;
-                    board[move.destRow, move.destCol] = Piece.Empty;
+                    board[move.startRow, move.destCol] = Piece.Empty;
                     teleportPiece(board, move.startRow, move.startCol, move.destRow, move.destCol);
                 }
                 //promotion
