@@ -442,7 +442,14 @@
 -analyzer:"C:/Program Files/Unity/Hub/Editor/6000.0.34f1/Editor/Data/Tools/Unity.SourceGenerators/Unity.SourceGenerators.dll"
 -analyzer:"C:/Program Files/Unity/Hub/Editor/6000.0.34f1/Editor/Data/Tools/Unity.SourceGenerators/Unity.UIToolkit.SourceGenerator.dll"
 "Assets/board_controller.cs"
+"Assets/change_sprite_on_hover.cs"
+"Assets/dot_controller.cs"
+"Assets/piece_controller.cs"
+"Assets/promotion_button.cs"
+"Assets/reset.cs"
+"Assets/teleport_parent_to_me.cs"
 "Assets/ui_controller.cs"
+"Assets/ui_drag.cs"
 -langversion:9.0
 /deterministic
 /optimize+
