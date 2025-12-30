@@ -69,6 +69,7 @@
     <Compile Include="Assets\board_controller.cs" />
     <Compile Include="Assets\reset.cs" />
     <Compile Include="Assets\ui_drag.cs" />
+    <Compile Include="Assets\promotion_button.cs" />
     <Compile Include="Assets\change_sprite_on_hover.cs" />
     <Compile Include="Assets\teleport_parent_to_me.cs" />
     <Compile Include="Assets\piece_controller.cs" />

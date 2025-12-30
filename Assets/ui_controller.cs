@@ -1,14 +1,25 @@
 using System.Collections.Generic;
 using System.Data;
-using Microsoft.Unity.VisualStudio.Editor;
 using Unity.Mathematics;
 using Unity.VisualScripting;
-using UnityEditor.Rendering;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class ui_controller : MonoBehaviour
 {
+    GameObject lastMoveStart;
+    GameObject lastMoveDest;
+    GameObject selectedSquareObject;
+    public Move potentialPromotionMove;
+    Sprite whiteQueen;
+    Sprite whiteKnight;
+    Sprite whiteRook;
+    Sprite whiteBishop;
+    Sprite blackQueen;
+    Sprite blackKnight;
+    Sprite blackRook;
+    Sprite blackBishop;
+    GameObject promotionWindow;
     GameObject resetScreen;
     GameObject resetButton;
     Sprite blackWins;
@@ -58,6 +69,26 @@ public class ui_controller : MonoBehaviour
         blackWins = Resources.Load<Sprite>("blackWinsScreen");
         whiteWins = Resources.Load<Sprite>("whiteWinsScreen");
         stalemate = Resources.Load<Sprite>("stalemateScreen");
+
+        promotionWindow = GameObject.Find("promotionWindow");
+        promotionWindow.SetActive(false);
+
+        whiteQueen = Resources.Load<Sprite>("whiteQueen");
+        whiteKnight = Resources.Load<Sprite>("whiteKnight");
+        whiteRook = Resources.Load<Sprite>("whiteRook");
+        whiteBishop = Resources.Load<Sprite>("whiteBishop");
+        blackQueen = Resources.Load<Sprite>("blackQueen");
+        blackKnight = Resources.Load<Sprite>("blackKnight");
+        blackRook = Resources.Load<Sprite>("blackRook");
+        blackBishop = Resources.Load<Sprite>("blackBishop");
+
+        lastMoveStart = GameObject.Find("lastMoveStartSquare");
+        lastMoveStart.SetActive(false);
+        lastMoveDest = GameObject.Find("lastMoveDestSquare");
+        lastMoveDest.SetActive(false);
+        selectedSquareObject = GameObject.Find("selectedSquare");
+        selectedSquareObject.SetActive(false);
+
     }
 
     void Update()
@@ -89,6 +120,66 @@ public class ui_controller : MonoBehaviour
                 unselectSquares();
             }
         }
+    }
+
+    void setPromotionWindowPiecesToColor(Color color)
+    {
+        Transform child0 = promotionWindow.transform.GetChild(0);
+        Transform child1 = promotionWindow.transform.GetChild(1);
+        Transform child2 = promotionWindow.transform.GetChild(2);
+        Transform child3 = promotionWindow.transform.GetChild(3);
+        GameObject topButton = child0.gameObject;
+        GameObject middleTopButton = child1.gameObject;
+        GameObject middleBottomButton = child2.gameObject;
+        GameObject bottomButton = child3.gameObject;
+        
+        if (color == Color.White)
+        {
+            topButton.GetComponent<UnityEngine.UI.Image>().sprite = whiteQueen;
+            topButton.GetComponent<promotion_button>().promotionTarget = 'Q';
+            middleTopButton.GetComponent<UnityEngine.UI.Image>().sprite = whiteKnight;
+            middleTopButton.GetComponent<promotion_button>().promotionTarget = 'N';
+            middleBottomButton.GetComponent<UnityEngine.UI.Image>().sprite = whiteRook;
+            middleBottomButton.GetComponent<promotion_button>().promotionTarget = 'R';
+            bottomButton.GetComponent<UnityEngine.UI.Image>().sprite = whiteBishop;
+            bottomButton.GetComponent<promotion_button>().promotionTarget = 'B';
+        }
+        else //black
+        {
+            topButton.GetComponent<UnityEngine.UI.Image>().sprite = blackBishop;
+            topButton.GetComponent<promotion_button>().promotionTarget = 'B';
+            middleTopButton.GetComponent<UnityEngine.UI.Image>().sprite = blackRook;
+            middleTopButton.GetComponent<promotion_button>().promotionTarget = 'R';
+            middleBottomButton.GetComponent<UnityEngine.UI.Image>().sprite = blackKnight;
+            middleBottomButton.GetComponent<promotion_button>().promotionTarget = 'N';
+            bottomButton.GetComponent<UnityEngine.UI.Image>().sprite = blackQueen;
+            bottomButton.GetComponent<promotion_button>().promotionTarget = 'Q';
+        }
+    }
+
+    public void openPromotionWindow(Move move)
+    {
+        int row = move.destRow;
+        int col = move.destCol;
+        Color promotionColor = (row == 7) ? Color.White : Color.Black;
+
+        int offsetDirection = (promotionColor == Color.White) ? -1 : 1;
+
+        int offset = 48 * offsetDirection;
+
+        Vector2 pos = GridToPosition(new Vector2Int(row, col));
+        pos.y += offset;
+        promotionWindow.GetComponent<RectTransform>().anchoredPosition = pos;
+        promotionWindow.SetActive(true);
+
+        setPromotionWindowPiecesToColor(promotionColor);
+
+        potentialPromotionMove = move;
+    }
+
+    public void closePromotionWindow()
+    {
+        promotionWindow.SetActive(false);
     }
 
     void teleportPieceObject(int startRow, int startCol, int destRow, int destCol)
@@ -141,6 +232,9 @@ public class ui_controller : MonoBehaviour
         clearPieces();
 
         populateBoard();
+
+        lastMoveStart.SetActive(false);
+        lastMoveDest.SetActive(false);
     }
 
     void clearPieces()
@@ -154,6 +248,11 @@ public class ui_controller : MonoBehaviour
 
     public void makeMoveOnUI(Move move)
     {
+        lastMoveStart.SetActive(true);
+        lastMoveDest.SetActive(true);
+        lastMoveStart.GetComponent<RectTransform>().anchoredPosition = GridToPosition(new Vector2Int(move.startRow, move.startCol));
+        lastMoveDest.GetComponent<RectTransform>().anchoredPosition = GridToPosition(new Vector2Int(move.destRow, move.destCol));
+
         GameObject movingPiece = pieces[(move.startRow, move.startCol)];
         Piece piece = movingPiece.GetComponent<piece_controller>().piece;
 
@@ -167,7 +266,7 @@ public class ui_controller : MonoBehaviour
         }
         else{//no piece at destination
             //if this is enpassant, delete the correct pawn game object
-            if(move.destRow != move.destCol){
+            if(move.startCol != move.destCol){
                 if (piece == Piece.WhitePawn)
                 {
                     if (isPieceAt(move.destRow - 1, move.destCol))
@@ -229,6 +328,36 @@ public class ui_controller : MonoBehaviour
         movingPiece.GetComponent<piece_controller>().homeCol = move.destCol;
         movingPiece.GetComponent<RectTransform>().anchoredPosition = GridToPosition(new Vector2Int(move.destRow, move.destCol));
         pieces[(move.destRow, move.destCol)] = movingPiece;
+
+        //promotion
+        if (move.pawnPromotionTarget != '0')
+        {
+            System.Func<string, Sprite> stringToPromotionSprite = (string s) =>
+            {
+                switch (s)
+                {
+                    case "WN": return whiteKnight;
+                    case "WB": return whiteBishop;
+                    case "WR": return whiteRook;
+                    case "WQ": return whiteQueen;
+
+                    case "BN": return blackKnight;
+                    case "BB": return blackBishop;
+                    case "BR": return blackRook;
+                    case "BQ": return blackQueen;
+
+                    default: return whiteQueen;
+                }
+            };
+            
+            char colorChar = board_controller.pieceToString(movingPiece.GetComponent<piece_controller>().piece)[0];
+            char pieceChar = move.pawnPromotionTarget;
+
+            string combined = "" + colorChar + pieceChar;
+            //change sprite and piece
+            movingPiece.GetComponent<UnityEngine.UI.Image>().sprite = stringToPromotionSprite(combined);
+            movingPiece.GetComponent<piece_controller>().piece = board_controller.stringToPiece(combined);
+        }
     }
 
     public bool isPieceAt(int row, int col)
@@ -255,6 +384,7 @@ public class ui_controller : MonoBehaviour
 
     public void unselectSquares()
     {
+        selectedSquareObject.SetActive(false);
         //unhighlight selected square
         selectedSquare = (-1, -1);
         foreach (GameObject dot in dots)
@@ -272,6 +402,10 @@ public class ui_controller : MonoBehaviour
 
         //show dots for all this squares legal moves
         showMyDots(bc.getMovesForSquare(row, col));
+
+        //move selected square
+        selectedSquareObject.SetActive(true);
+        selectedSquareObject.GetComponent<RectTransform>().anchoredPosition = GridToPosition(new Vector2Int(row, col));
     }
 
     void placeDots()

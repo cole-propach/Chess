@@ -180,6 +180,29 @@ public class board_controller : MonoBehaviour
         }
     }
 
+    public static Piece stringToPiece(string s)
+    {
+        switch (s)
+        {
+            case "WP": return Piece.WhitePawn;
+            case "WN": return Piece.WhiteKnight;
+            case "WB": return Piece.WhiteBishop;
+            case "WR": return Piece.WhiteRook;
+            case "WQ": return Piece.WhiteQueen;
+            case "WK": return Piece.WhiteKing;
+
+            case "BP": return Piece.BlackPawn;
+            case "BN": return Piece.BlackKnight;
+            case "BB": return Piece.BlackBishop;
+            case "BR": return Piece.BlackRook;
+            case "BQ": return Piece.BlackQueen;
+            case "BK": return Piece.BlackKing;
+
+            default: return Piece.Empty;
+        }
+    }
+
+
     void printBoard()
     {
         Debug.Log("V this one is the real board V");
@@ -229,7 +252,7 @@ public class board_controller : MonoBehaviour
         b[startRow, startCol] = Piece.Empty;
     }
 
-    bool isLegalMove(Move move)
+    public bool isLegalMove(Move move)
     {
         bool hasKey = currentLegalMoves.ContainsKey((move.startRow, move.startCol));
         if(!hasKey) return false;
