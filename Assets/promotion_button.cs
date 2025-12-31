@@ -23,6 +23,6 @@ public class promotion_button : MonoBehaviour, IPointerClickHandler
         //send move to ui
         ui.makeMoveOnUI(promotion);
         //close window
-        gameObject.transform.parent.gameObject.SetActive(false);
+        ui.closePromotionWindow();
     }
 }

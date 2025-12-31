@@ -7,6 +7,7 @@ using UnityEngine.UI;
 
 public class ui_controller : MonoBehaviour
 {
+    public bool promotionWindowIsOpen;
     GameObject lastMoveStart;
     GameObject lastMoveDest;
     GameObject selectedSquareObject;
@@ -89,6 +90,7 @@ public class ui_controller : MonoBehaviour
         selectedSquareObject = GameObject.Find("selectedSquare");
         selectedSquareObject.SetActive(false);
 
+        promotionWindowIsOpen = false;
     }
 
     void Update()
@@ -105,19 +107,22 @@ public class ui_controller : MonoBehaviour
 
             Vector2Int gridClickPos = PositionToGrid(localPoint);
 
-            //if there are no pieces there
-            if(!pieces.ContainsKey((gridClickPos[0], gridClickPos[1]))){
-                //if there is a selected square, attempt a move
-                if (selectedSquare != (-1, -1))
-                {
-                    (int srow, int scol) = selectedSquare;
-                    Move move = new Move(srow, scol, gridClickPos[0], gridClickPos[1], pieces[(srow, scol)].GetComponent<piece_controller>().piece, "");
-                    if (bc.SendMove(move)) //if move is legal
+            if(!promotionWindowIsOpen)
+            {
+                //if there are no pieces there
+                if(!pieces.ContainsKey((gridClickPos[0], gridClickPos[1]))){
+                    //if there is a selected square, attempt a move
+                    if (selectedSquare != (-1, -1))
                     {
-                        makeMoveOnUI(move);
+                        (int srow, int scol) = selectedSquare;
+                        Move move = new Move(srow, scol, gridClickPos[0], gridClickPos[1], pieces[(srow, scol)].GetComponent<piece_controller>().piece, "");
+                        if (bc.SendMove(move)) //if move is legal
+                        {
+                            makeMoveOnUI(move);
+                        }
                     }
+                    unselectSquares();
                 }
-                unselectSquares();
             }
         }
     }
@@ -157,6 +162,14 @@ public class ui_controller : MonoBehaviour
         }
     }
 
+    void setAllPieceUIDragsTo(bool state)
+    {
+        foreach(var entry in pieces)
+        {
+            entry.Value.GetComponent<DragUI>().enabled = state;
+        }
+    }
+
     public void openPromotionWindow(Move move)
     {
         int row = move.destRow;
@@ -175,11 +188,15 @@ public class ui_controller : MonoBehaviour
         setPromotionWindowPiecesToColor(promotionColor);
 
         potentialPromotionMove = move;
+        promotionWindowIsOpen = true;
+        setAllPieceUIDragsTo(false);
     }
 
     public void closePromotionWindow()
     {
         promotionWindow.SetActive(false);
+        promotionWindowIsOpen = false;
+        setAllPieceUIDragsTo(true);
     }
 
     void teleportPieceObject(int startRow, int startCol, int destRow, int destCol)
@@ -235,6 +252,7 @@ public class ui_controller : MonoBehaviour
 
         lastMoveStart.SetActive(false);
         lastMoveDest.SetActive(false);
+        closePromotionWindow();
     }
 
     void clearPieces()

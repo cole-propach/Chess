@@ -77,17 +77,19 @@ public class piece_controller : MonoBehaviour
 
     public void onClickDown(Vector2 mousePos)
     {
-        if(ui.selectedSquare == (-1, -1))
-        {
-            ui.selectSquare(homeRow, homeCol);
-        }
-        else //there is a selected square
-        {
-            //if capturing me is a legal move, then make the move
-            (int srow, int scol) = ui.selectedSquare;
-            Move move = new Move(srow, scol, homeRow, homeCol, ui.selectedPiece, "");
-            
-            attemptMove(move);
+        if(!ui.promotionWindowIsOpen){
+            if(ui.selectedSquare == (-1, -1))
+            {
+                ui.selectSquare(homeRow, homeCol);
+            }
+            else //there is a selected square
+            {
+                //if capturing me is a legal move, then make the move
+                (int srow, int scol) = ui.selectedSquare;
+                Move move = new Move(srow, scol, homeRow, homeCol, ui.selectedPiece, "");
+                
+                attemptMove(move);
+            }
         }
     }
 }
