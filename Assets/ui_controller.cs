@@ -7,6 +7,8 @@ using UnityEngine.UI;
 
 public class ui_controller : MonoBehaviour
 {
+    Sprite dotOnPiece;
+    Sprite dotNotOnPiece;
     public bool promotionWindowIsOpen;
     GameObject lastMoveStart;
     GameObject lastMoveDest;
@@ -91,6 +93,11 @@ public class ui_controller : MonoBehaviour
         selectedSquareObject.SetActive(false);
 
         promotionWindowIsOpen = false;
+
+        dotOnPiece = Resources.Load<Sprite>("dotOnPiece");
+        dotNotOnPiece = Resources.Load<Sprite>("dot");
+
+        updateDotSprites();
     }
 
     void Update()
@@ -190,6 +197,8 @@ public class ui_controller : MonoBehaviour
         potentialPromotionMove = move;
         promotionWindowIsOpen = true;
         setAllPieceUIDragsTo(false);
+
+        hideAllDots();
     }
 
     public void closePromotionWindow()
@@ -253,6 +262,7 @@ public class ui_controller : MonoBehaviour
         lastMoveStart.SetActive(false);
         lastMoveDest.SetActive(false);
         closePromotionWindow();
+        updateDotSprites();
     }
 
     void clearPieces()
@@ -375,6 +385,34 @@ public class ui_controller : MonoBehaviour
             //change sprite and piece
             movingPiece.GetComponent<UnityEngine.UI.Image>().sprite = stringToPromotionSprite(combined);
             movingPiece.GetComponent<piece_controller>().piece = board_controller.stringToPiece(combined);
+        }
+
+        updateDotSprites();
+    }
+
+    void hideAllDots()
+    {
+        foreach (GameObject dot in dots)
+        {
+            dot.GetComponent<dot_controller>().Hide();
+        }
+    }
+
+    void updateDotSprites()
+    {
+        for (int r = 0; r < 8; r++)
+        {
+            for (int c = 0; c < 8; c++)
+            {
+                if (isPieceAt(r, c))
+                {
+                    dots[r, c].GetComponent<Image>().sprite = dotOnPiece;
+                }
+                else
+                {
+                    dots[r, c].GetComponent<Image>().sprite = dotNotOnPiece;
+                }
+            }
         }
     }
 

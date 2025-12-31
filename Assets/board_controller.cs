@@ -672,7 +672,8 @@ public class board_controller : MonoBehaviour
 
                         //check if it can move 2 forward only if it can move 1 forward
                         bool onCorrectRow = (color == Color.White) ? row == 1 : row == 6;
-                        if (board[row + (moveDir * 2), col] == Piece.Empty && onCorrectRow)
+                        //bool isNotOnLastRank = (color == Color.White) ? row == 6 : row == 1;
+                        if (onCorrectRow && board[row + (moveDir * 2), col] == Piece.Empty)
                         {
                             moves.Add(new Move(row, col, row + (moveDir * 2), col, me, ""));
                         }
